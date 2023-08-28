@@ -1,12 +1,13 @@
+use clap::Parser;
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::prelude::*;
-use std::{error::Error, io, time::Duration};
+use std::{error::Error, io};
 
-use btop::{run_app, App};
+use btop::{run_app, App, Config};
 
 fn main() -> Result<(), Box<dyn Error>> {
     // setup terminal
@@ -17,9 +18,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     // create app and run it
-    let tick_rate = Duration::from_millis(1000);
-    let app = App::new();
-    let res = run_app(&mut terminal, app, tick_rate);
+    // tick_rate is now inside apps config
+    let config = Config::parse();
+    let app = App::new(config);
+    let res = run_app(&mut terminal, app);
 
     // restore terminal
     disable_raw_mode()?;

@@ -7,5 +7,6 @@ edition = "2021"
 
 [dependencies]
 battery = "0.7.8"
+clap = { version = "4.4.0", features = ["derive"] }
 crossterm = "0.27.0"
 ratatui = "0.22.0"

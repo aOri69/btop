@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 
+use crate::Config;
+
 #[derive(Default)]
 pub struct App {
     pub percentage: f64,
@@ -19,10 +21,11 @@ pub struct App {
     pub power_bar: VecDeque<f64>,
     pub power_bar_y_max: f64,
     pub power_bar_y_min: f64,
+    pub config: Config,
 }
 
 impl App {
-    pub fn new() -> App {
+    pub fn new(config: Config) -> App {
         App {
             percentage: f64::default(),
             vendor: String::new(),
@@ -38,9 +41,10 @@ impl App {
             technology: Default::default(),
             temperature: Default::default(),
             voltage: Default::default(),
-            power_bar: VecDeque::with_capacity(super::BUF_CAPACITY),
+            power_bar: VecDeque::with_capacity(config.buf_capacity()),
             power_bar_y_max: 0.1,
             power_bar_y_min: -0.1,
+            config,
         }
     }
 
@@ -80,9 +84,11 @@ impl App {
                 }
                 _ => self.power.get::<battery::units::power::watt>() as f64,
             };
-
+            let upper_index = self.config.upper_index();
             match self.power_bar.len() {
-                _l @ 0..=super::UPPER_INDEX => self.power_bar.push_back(signed_power),
+                // runtime values cannot be referenced in patterns
+                // _l @ 0..=upper_index => self.power_bar.push_back(signed_power),
+                l if l <= upper_index => self.power_bar.push_back(signed_power),
                 _ => {
                     self.power_bar.pop_front();
                     self.power_bar.push_back(signed_power);
@@ -110,7 +116,7 @@ impl App {
             .rev()
             .enumerate()
             .map(|(idx, &y)| {
-                let x = super::BUF_CAPACITY - 1 - idx;
+                let x = self.config.upper_index() - idx;
                 (x as f64, y)
             })
             .collect()
