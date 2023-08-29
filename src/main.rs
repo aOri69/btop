@@ -1,39 +1,18 @@
-use clap::Parser;
-use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
-use ratatui::prelude::*;
-use std::{error::Error, io};
-
-use btop::{run_app, App, Config};
+use btop::{restore_terminal, run_app, setup_terminal, App, Config, Parser};
+use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+    let mut terminal = setup_terminal()?;
 
-    // create app and run it
-    // tick_rate is now inside apps config
     let config = Config::parse();
     let app = App::new(config);
-    let res = run_app(&mut terminal, app);
+    // Main loop
+    let result = run_app(&mut terminal, app);
 
-    // restore terminal
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
+    restore_terminal(terminal)?;
 
-    if let Err(err) = res {
-        println!("{err:?}");
+    if let Err(err) = result {
+        eprintln!("{err:?}");
     }
 
     Ok(())

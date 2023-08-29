@@ -1,4 +1,4 @@
-use clap::Parser;
+pub use clap::Parser;
 use std::time::Duration;
 
 const DEFAULT_DURATION_ONE_SEC: u64 = 1500;

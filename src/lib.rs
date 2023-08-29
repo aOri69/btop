@@ -1,20 +1,28 @@
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
 use ratatui::{prelude::*, widgets::*};
 use std::{
-    io,
+    error::Error,
+    io::{self, Stdout},
+    ops::ControlFlow,
     time::{Duration, Instant},
 };
 
 mod app;
 mod config;
 pub use app::App;
-pub use config::Config;
+pub use config::{Config, Parser};
 
-pub fn run_app<B: Backend>(
-    terminal: &mut Terminal<B>,
-    mut app: App,
-    // tick_rate: Duration,
-) -> io::Result<()> {
+// These type aliases are used to make the code more readable by reducing repetition of the generic
+// types. They are not necessary for the functionality of the code.
+pub type Frame<'a> = ratatui::Frame<'a, CrosstermBackend<Stdout>>;
+pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
+pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
+
+pub fn run_app(terminal: &mut Terminal, mut app: App) -> Result<()> {
     let mut last_tick = Instant::now();
     let tick_rate = app.config.tick_rate();
     loop {
@@ -23,13 +31,11 @@ pub fn run_app<B: Backend>(
         let timeout = tick_rate
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
-        if crossterm::event::poll(timeout)? {
-            if let Event::Key(key) = event::read()? {
-                if let KeyCode::Char('q') = key.code {
-                    return Ok(());
-                }
-            }
+
+        if handle_events(timeout)?.is_break() {
+            return Ok(());
         }
+
         if last_tick.elapsed() >= tick_rate {
             app.on_tick();
             last_tick = Instant::now();
@@ -37,7 +43,38 @@ pub fn run_app<B: Backend>(
     }
 }
 
-fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
+pub fn setup_terminal() -> Result<Terminal> {
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let terminal = Terminal::new(backend)?;
+    Ok(terminal)
+}
+
+pub fn restore_terminal(mut terminal: Terminal) -> Result<()> {
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
+    Ok(())
+}
+
+pub fn handle_events(timeout: Duration) -> Result<ControlFlow<()>> {
+    if event::poll(timeout)? {
+        if let Event::Key(key) = event::read()? {
+            if let KeyCode::Char('q') = key.code {
+                return Ok(ControlFlow::Break(()));
+            }
+        }
+    }
+    Ok(ControlFlow::Continue(()))
+}
+
+fn ui(f: &mut Frame, app: &App) {
     // main frame
     f.render_widget(Block::default().borders(Borders::ALL), f.size());
 
